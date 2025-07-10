@@ -9,4 +9,5 @@ Simulate combining Gaia catalogues with future Roman images to measure improved 
 
 ### Caveats:
 * Assumes that there are enough stars in common between a Roman image and Gaia such that the uncertainty on the alignment contributes negligibly to Roman position uncertainty on the Gaia refrence frame.
+* The parallax calculation places Roman at Earth instead of at L2, though the effect should be fairly minor on the astrometry precision calculations. This will need to be changed when working with real Roman data and measuring the new astrometric vectors themselves. 
 
