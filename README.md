@@ -9,7 +9,7 @@ Inside of `gaia+roman_astrometry.ipynb`, the user can set some key parameters li
 * For numerical stability, there is an extremely diffuse global prior applied to the PM and parallax measurements (i.e. uncertainties are ~10 times larger than the largest possible stellar PM or parallax seen from Earth). This may lead to the output plots having Gaia+Roman PM uncertainties around 10^5 mas/yr and parallax uncertainties of 10^4 mas.
 
 ### Acknowledgements
-* Scientifically inspired by the [Bayesian Positions, Parallaxes, Proper Motions (BP3M)](https://github.com/KevinMcK95/BayesianPMs) tool presented in [McKinnon et al. 2024](https://ui.adsabs.harvard.edu/abs/2024ApJ...972..150M/abstract).
-* Uses the predicted Gaia astrometric precision for positions, parallaxes, and proper motions for DR3 to DR5 as presented by the [Gaia Collaboration](https://www.cosmos.esa.int/web/gaia/science-performance).
-* Uses the [`pandeia`](https://pypi.org/project/pandeia.engine/2025.5/#files) and [`stpsf`](https://stpsf.readthedocs.io/en/latest/index.html) packages to simulate Roman PSFs and observations.
+* The statistics underpinning this code is scientifically inspired by the [Bayesian Positions, Parallaxes, Proper Motions (BP3M)](https://github.com/KevinMcK95/BayesianPMs) tool presented in [McKinnon et al. 2024](https://ui.adsabs.harvard.edu/abs/2024ApJ...972..150M/abstract).
+* This work uses the predicted Gaia astrometric precision for positions, parallaxes, and proper motions for DR3 to DR5 as presented by the [Gaia Collaboration](https://www.cosmos.esa.int/web/gaia/science-performance).
+* This code uses the [`pandeia`](https://pypi.org/project/pandeia.engine/2025.5/#files) and [`stpsf`](https://stpsf.readthedocs.io/en/latest/index.html) packages to simulate Roman PSFs and observations.
 * Thanks to [Eddie Schlafly](https://gist.github.com/schlafly) for sharing example code for calculating Roman astrometric uncertainties.
