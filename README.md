@@ -1,5 +1,7 @@
 # gaia_roman_astrometry
-Simulate combining Gaia catalogues with future Roman images to measure improved astrometry.
+Simulate combining Gaia catalogues with future Roman images to measure improved astrometry. The main notebook to be working with is `roman+gaia_astrometry.ipynb`. The other pieces of code contain the main helper functions as well as measure the relationship between Roman position uncertainty and magnitude for different filters. 
+
+Inside of `roman+gaia_astrometry.ipynb`, the user can set some key parameters like Roman observation times, magnitudes of sources in different filters, and the Gaia data-release era. At the end, summary figures show the size of the position, parallax, and proper motion uncertainties as well as compare those improvements to Gaia alone.  
 
 ### Acknowledgements
 * Scientifically inspired by the [Bayesian Positions, Parallaxes, Proper Motions (BP3M)](https://github.com/KevinMcK95/BayesianPMs) tool presented in [McKinnon et al. 2024](https://ui.adsabs.harvard.edu/abs/2024ApJ...972..150M/abstract).
