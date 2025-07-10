@@ -5,7 +5,8 @@ Inside of `gaia+roman_astrometry.ipynb`, the user can set some key parameters li
 
 ### Caveats about Results:
 * Assumes that there are enough stars in common between a Roman image and Gaia such that the uncertainty on the alignment contributes negligibly to Roman position uncertainty on the Gaia refrence frame. If a user would like to explore the impact of this uncertainty, they can increase the `roman_pos_err_floor` parameter to be larger than the nominal 1% of a pixel. 
-* The parallax calculation places Roman at Earth instead of at L2, though the effect should be fairly minor on the astrometry precision calculations. This will need to be changed when working with real Roman data and measuring the new astrometric vectors themselves. 
+* The parallax calculation places Roman at Earth instead of at L2, though the effect should be fairly minor on the astrometry precision calculations. This will need to be changed when working with real Roman data and measuring the new astrometric vectors themselves.
+* For numerical stability, there is an extremely diffuse global prior applied to the PM and parallax measurements (i.e. uncertainties are 10 times larger than the largest PM or parallax of stars seen from Earth). This may lead to the output plots having Gaia+Roman PM uncertainties around 10^5 mas/yr and parallax uncertainties of 10^4.
 
 ### Acknowledgements
 * Scientifically inspired by the [Bayesian Positions, Parallaxes, Proper Motions (BP3M)](https://github.com/KevinMcK95/BayesianPMs) tool presented in [McKinnon et al. 2024](https://ui.adsabs.harvard.edu/abs/2024ApJ...972..150M/abstract).
