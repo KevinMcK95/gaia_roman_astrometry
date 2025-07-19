@@ -14,3 +14,4 @@ Inside of `gaia+roman_astrometry.ipynb`, the user can set some key parameters li
 * This work uses the predicted Gaia astrometric precision for positions, parallaxes, and proper motions for DR3 to DR5 as presented by the [Gaia Collaboration](https://www.cosmos.esa.int/web/gaia/science-performance).
 * This code uses the [`pandeia`](https://pypi.org/project/pandeia.engine/2025.5/#files) and [`stpsf`](https://stpsf.readthedocs.io/en/latest/index.html) packages to simulate Roman PSFs and observations.
 * Thanks to [Eddie Schlafly](https://gist.github.com/schlafly) for sharing example code for calculating Roman astrometric uncertainties.
+
