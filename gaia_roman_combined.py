@@ -12,7 +12,35 @@ datapath = './data/'
 allowed_filters = ['F062','F087','F106','F129','F146','F158','F184','F213'] #allowed Roman filters
 roman_pix_scale = 107.8577405 #mas/pixel
 
-def roman_position_precision(mags_ab,filt,
+#see here for WFI MultiAccum Table descriptions:
+#https://roman-docs.stsci.edu/roman-instruments-home/wfi-imaging-mode-user-guide/observing-with-the-wfi-in-imaging-mode/wfi-multiaccum-tables
+allowed_ma_names = [
+    'C1_IMG_MICROLENS',\
+    'C2A_IMG_HLWAS',\
+    'C2B_IMG_HLWAS',\
+    'C2C_IMG_HLWAS',\
+    'C2D_IMG_HLWAS',\
+    'C2E_IMG_HLWAS',\
+    'C2F_IMG_HLWAS',\
+    'C2G_IMG_HLWAS',\
+    'C2H_IMG_HLWAS',\
+]
+
+#in seconds
+ma_integration_times = {
+    'C1_IMG_MICROLENS':56.92447,\
+    'C2A_IMG_HLWAS':139.14869,\
+    'C2B_IMG_HLWAS':199.23563,\
+    'C2C_IMG_HLWAS':294.10974,\
+    'C2D_IMG_HLWAS':395.30879,\
+    'C2E_IMG_HLWAS':493.34537,\
+    'C2F_IMG_HLWAS':591.38195,\
+    'C2G_IMG_HLWAS':736.85559,\
+    'C2H_IMG_HLWAS':975.6221,\
+}
+
+
+def roman_position_precision(mags_ab,filt,ma_name,
                              datapath = datapath):
     '''
     For a given AB magnitude and Roman filter,
@@ -25,6 +53,8 @@ def roman_position_precision(mags_ab,filt,
     mags_ab = numpy array of AB magnitudes to calculate position uncertainties
     filt = one of ['F062','F087','F106','F129',
                    'F146','F158','F184','F213'],  Roman filter
+    ma_name = one of the choices in allowed_ma_names,  
+                    Roman MultiAccum choice (i.e. exposure time)
 
     Outputs:
     sigma_xy = numpy array of position uncertainty of source in Roman image (mas)    
@@ -32,8 +62,10 @@ def roman_position_precision(mags_ab,filt,
 
     if filt not in allowed_filters:
         raise ValueError(f'ERROR: Chosen filter {filt} is not in the allowed filter list. Please try again.')
+    if ma_name not in allowed_ma_names:
+        raise ValueError(f'ERROR: Chosen MA name {ma_name} is not in the allowed MultiAccum list. Please try again.')
 
-    fname = f'{datapath}roman_{filt}_pos_errs.csv'
+    fname = f'{datapath}roman_{ma_name}_{filt}_pos_errs.csv'
     if not os.path.isfile(fname):
         raise ValueError(f'ERROR: Could not find position error csv for filter {filt}.'\
                          +f' Please download the appropriate data or run the roman_astrometric_precision.ipynb first.')
@@ -196,12 +228,20 @@ class gaia_roman_astrometric_precision:
         self.n_filters = len(roman_filters)
         self.roman_filters = np.array(roman_filters)
         self.roman_mags = roman_mags
-        self.roman_pos_errs = np.zeros_like(roman_mags)
+
+        self.obs_unique_filter_MAs = np.unique(np.array(observation_list)[:,[1,3]],axis=0)
+        self.obs_unique_filter_MAs_strings = np.zeros(len(self.obs_unique_filter_MAs)).astype(str)
+        for ind,pair in enumerate(self.obs_unique_filter_MAs):
+            self.obs_unique_filter_MAs_strings[ind] = '_'.join(pair)
+        self.obs_n_unique_filt_MAs = len(self.obs_unique_filter_MAs)        
         
-        self.roman_covs = np.zeros((self.n_stars,self.n_filters,2,2))
-        
-        for filt_ind,filt in enumerate(roman_filters):
-            self.roman_pos_errs[:,filt_ind] = roman_position_precision(self.roman_mags[:,filt_ind],filt)
+        self.roman_covs = np.zeros((self.n_stars,self.obs_n_unique_filt_MAs,2,2))
+        self.roman_pos_errs = np.zeros((self.n_stars,self.obs_n_unique_filt_MAs))
+        for filt_ind in range(self.obs_n_unique_filt_MAs):
+            filt = self.obs_unique_filter_MAs[filt_ind][0]
+            ma_name = self.obs_unique_filter_MAs[filt_ind][1]
+            
+            self.roman_pos_errs[:,filt_ind] = roman_position_precision(self.roman_mags[:,filt_ind],filt,ma_name)
             self.roman_covs[:,filt_ind,0,0] = np.power(self.roman_pos_errs[:,filt_ind],2)
             self.roman_covs[:,filt_ind,1,1] = np.power(self.roman_pos_errs[:,filt_ind],2)
         self.good_roman_errs = np.isfinite(self.roman_pos_errs)
@@ -255,10 +295,15 @@ class gaia_roman_astrometric_precision:
         self.obs_epoch_mjds = np.zeros(self.n_epochs).astype(float)
         self.obs_n_images_per_epoch = np.zeros(self.n_epochs).astype(int)
         self.obs_roman_filt_inds = np.zeros(self.n_epochs).astype(int)
+        self.obs_roman_ma_names = np.zeros(self.n_epochs).astype(str)
         for obs_ind in range(self.n_epochs):
             self.obs_epoch_mjds[obs_ind] = observation_list[obs_ind][0]
             self.obs_n_images_per_epoch[obs_ind] = observation_list[obs_ind][2]
-            self.obs_roman_filt_inds[obs_ind] = np.where(self.roman_filters == observation_list[obs_ind][1])[0][0]
+            self.obs_roman_ma_names[obs_ind] = observation_list[obs_ind][3]
+            
+            filt = observation_list[obs_ind][1]
+            ma_name = observation_list[obs_ind][3]
+            self.obs_roman_filt_inds[obs_ind] = np.where(self.obs_unique_filter_MAs_strings == '_'.join([filt,ma_name]))[0][0]
 
         self.n_min_epochs_indv = np.sum(self.good_roman_errs[:,self.obs_roman_filt_inds],axis=1)
         self.n_min_epochs_indv[self.good_gaia_pos] += 1
