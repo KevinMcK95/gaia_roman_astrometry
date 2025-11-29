@@ -14,64 +14,71 @@ roman_pix_scale = 107.8577405 #mas/pixel
 
 #see here for WFI MultiAccum Table descriptions:
 #https://roman-docs.stsci.edu/roman-instruments-home/wfi-imaging-mode-user-guide/observing-with-the-wfi-in-imaging-mode/wfi-multiaccum-tables
-allowed_ma_names = [
-    'C1_IMG_MICROLENS',\
-    'C2A_IMG_HLWAS',\
-    'C2B_IMG_HLWAS',\
-    'C2C_IMG_HLWAS',\
-    'C2D_IMG_HLWAS',\
-    'C2E_IMG_HLWAS',\
-    'C2F_IMG_HLWAS',\
-    'C2G_IMG_HLWAS',\
-    'C2H_IMG_HLWAS',\
-]
+allowed_ma_names = ['IM_60_6_S','IM_66_6','IM_76_7_S','IM_85_7','IM_95_7','IM_101_7','IM_107_7','IM_107_8_S','IM_120_8',\
+                    'IM_135_8','IM_152_9','IM_171_10','IM_193_11','IM_193_14_S','IM_225_13','IM_250_14','IM_284_14',\
+                    'IM_294_16','IM_307_16','IM_360_16','IM_409_16','IM_420_16','IM_460_16','IM_500_16','IM_550_16',\
+                    'IM_600_16','IM_650_16','IM_700_16','IM_750_16','IM_800_16','IM_900_16','IM_950_16','IM_1000_16']
 
-#in seconds
-ma_integration_times = {
-    'C1_IMG_MICROLENS':56.92447,\
-    'C2A_IMG_HLWAS':139.14869,\
-    'C2B_IMG_HLWAS':199.23563,\
-    'C2C_IMG_HLWAS':294.10974,\
-    'C2D_IMG_HLWAS':395.30879,\
-    'C2E_IMG_HLWAS':493.34537,\
-    'C2F_IMG_HLWAS':591.38195,\
-    'C2G_IMG_HLWAS':736.85559,\
-    'C2H_IMG_HLWAS':975.6221,\
-}
+#backgrounds and levels used when simulating centroiding accuracy
+allowed_backgrounds = ['hltds','gbtds_mid_5stripe',\
+                       'hlwas-medium_field1','hlwas-medium_field2',\
+                       'hlwas-wide_field1','hlwas-wide_field2',\
+                       'hlwas-wide_field3','hlwas-wide_field4']
 
+# allowed_background_levels = ['high','medium','low']
+allowed_background_levels = ['medium']
+
+ma_integration_times = {}
+for name in allowed_ma_names:
+    ma_integration_times[name] = int(name.split('_')[1])
 
 def roman_position_precision(mags_ab,filt,ma_name,
+                             background,background_level,
                              datapath = datapath):
     '''
-    For a given AB magnitude and Roman filter,
+    For a given AB magnitude and Roman filter/MA/background,
     return the expected position uncertainty of a star.
-    The underlying uncertaintyies come from running the 
+    The underlying uncertainties come from running the 
     accompanying roman_astrometric_precision.ipynb notebook, which 
     uses pandeia and stpsf to estimate Roman position measurements.
 
     Inputs:
-    mags_ab = numpy array of AB magnitudes to calculate position uncertainties
-    filt = one of ['F062','F087','F106','F129',
-                   'F146','F158','F184','F213'],  Roman filter
-    ma_name = one of the choices in allowed_ma_names,  
-                    Roman MultiAccum choice (i.e. exposure time)
+        mags_ab = numpy array of AB magnitudes to calculate position uncertainties
+        filt = one of ['F062','F087','F106','F129',
+                       'F146','F158','F184','F213'],  Roman filter
+        ma_name = one of the choices in allowed_ma_names,  
+                        Roman MultiAccum choice (i.e. exposure time)
 
     Outputs:
-    sigma_xy = numpy array of position uncertainty of source in Roman image (mas)    
+        sigma_xy = numpy array of position uncertainty of source in Roman image (mas)    
     '''
 
     if filt not in allowed_filters:
+        print(f'Allowed filters are as follows:')
+        print(allowed_filters)
         raise ValueError(f'ERROR: Chosen filter {filt} is not in the allowed filter list. Please try again.')
     if ma_name not in allowed_ma_names:
+        print(f'Allowed MA names are as follows:')
+        print(allowed_ma_names)
         raise ValueError(f'ERROR: Chosen MA name {ma_name} is not in the allowed MultiAccum list. Please try again.')
+    if background not in allowed_backgrounds:
+        print(f'Allowed backgrounds are as follows:')
+        print(allowed_backgrounds)
+        raise ValueError(f'ERROR: Chosen background of {background} is not in the allowed background list. Please try again.')
+    if background_level not in allowed_background_levels:
+        print(f'Allowed background levels are as follows:')
+        print(allowed_background_levels)
+        raise ValueError(f'ERROR: Chosen brackground level of {background_level} is not in the allowed background level list. Please try again.')
 
-    fname = f'{datapath}roman_{ma_name}_{filt}_pos_errs.csv'
+    background_string = f'{background}_{background_level}'
+    fname = f'{datapath}roman_{ma_name}_{background_string}_{filt}_pos_errs.csv'
     if not os.path.isfile(fname):
-        raise ValueError(f'ERROR: Could not find position error csv for filter {filt}.'\
+        raise ValueError(f'ERROR: Could not find position error csv at {fname}'\
                          +f' Please download the appropriate data or run the roman_astrometric_precision.ipynb first.')
     input_data = pd.read_csv(fname)
-    
-    return np.interp(mags_ab,input_data['mags_ab'],input_data['pos_errs_mas'],left=np.nan,right=np.nan)
+
+    good_data_inds = np.where(np.isfinite(input_data['pos_errs_mas']))[0]
+    return np.interp(mags_ab,input_data['mags_ab'][good_data_inds],input_data['pos_errs_mas'][good_data_inds],right=np.inf)
 
 
 def gaia_astrometry_precision(gmag,
@@ -85,18 +92,18 @@ def gaia_astrometry_precision(gmag,
     from https://www.cosmos.esa.int/web/gaia/science-performance
 
     Inputs:
-    gmags = numpy array of Gaia G mags to calculate astrometric uncertainties
-    era = one of ['DR3','DR4','DR5'], data release of Gaia to consider
-    gmax_pms = 20.7 #max mag where parallaxes/PMs are measured
-    gmax_pos = 21.5 #max mag where Positions are measured
-    gmin = 3 #min mag where measurements are made
+        gmags = numpy array of Gaia G mags to calculate astrometric uncertainties
+        era = one of ['DR3','DR4','DR5'], data release of Gaia to consider
+        gmax_pms = 20.7 #max mag where parallaxes/PMs are measured
+        gmax_pos = 21.5 #max mag where Positions are measured
+        gmin = 3 #min mag where measurements are made
 
     Outputs:
-    sigma_dracosdec = numpy array of RA position uncertainties (mas)
-    sigma_ddec = numpy array of Dec position uncertainties (mas)
-    sigma_pmracosdec = numpy array of PMRA uncertainties (mas/yr)
-    sigma_pmdec = numpy array of PMDec uncertainties (mas/yr)
-    sigma_parallax = numpy array of parallax uncertainties (mas)
+        sigma_dracosdec = numpy array of RA position uncertainties (mas)
+        sigma_ddec = numpy array of Dec position uncertainties (mas)
+        sigma_pmracosdec = numpy array of PMRA uncertainties (mas/yr)
+        sigma_pmdec = numpy array of PMDec uncertainties (mas/yr)
+        sigma_parallax = numpy array of parallax uncertainties (mas)
     '''
     
     z = np.maximum(10**((0.4) * (13 - 15)), np.power(10,0.4 * (gmag - 15)))
@@ -142,9 +149,75 @@ def gaia_astrometry_precision(gmag,
 
     return sigma_dracosdec,sigma_ddec,sigma_pmracosdec,sigma_pmdec,sigma_parallax
 
+def create_motion_matrices(obs_times,ref_time,
+                           ra=None,dec=None,
+                           return_only_motion=True):
+    '''
+    takes 
+
+    Inputs:
+        obs_times = times of new observations, astropy list of Time objects
+        ref_time = reference epoch time things are being measured from (e.g. gaia_time), single astropy Time object
+        ra,dec = target/pointing coordinate in degrees, default is None, which ignores parallax in the following calculations
+        return_only_motion = boolean, decides whether to just return motion_matrices or additional information
+
+    Outputs:
+        motion_matrices = motion_matrix associated with the observation dates and (RA,Dec)
+        parallax_vectors = parallax vectors associated with the observation dates and (RA,Dec)
+        including_parallax = boolean, True if parallax is used in fitting (i.e. real RA,Dec provided)
+        n_fit_params = 4 or 5 depending on whether parallax is fit
+    '''
+    n_epochs = len(obs_times)
+    obs_dyears = (obs_times-ref_time).to(u.year).value
+    if (ra is None) or (dec is None):
+        #then DO NOT include parallax in motion matrix calculations
+        parallax_vectors = np.zeros((n_epochs,2))*np.nan
+
+        #motion_matrix dot [dracosdec,ddec,pmracosdec,pmdec,] = position change
+        motion_matrices = np.zeros((n_epochs,2,4))
+        motion_matrices[:,0,0] = -1
+        motion_matrices[:,1,1] = -1
+        motion_matrices[:,0,2] = -obs_dyears
+        motion_matrices[:,1,3] = -obs_dyears
+
+        including_parallax = False
+        n_fit_params = 4
+    else:
+        #then DO include parallax in motion matrix calculations
+
+        #calculate the parallax vector associated with the observation dates and (RA,Dec)
+        parallax_vectors = delta_ra_dec_per_parallax_VECTORIZED(obs_times,ref_time,ra,dec)
+
+        #motion_matrix dot [dracosdec,ddec,pmracosdec,pmdec,] = position change
+        motion_matrices = np.zeros((n_epochs,2,5))
+        motion_matrices[:,0,0] = -1
+        motion_matrices[:,1,1] = -1
+        motion_matrices[:,0,2] = -obs_dyears
+        motion_matrices[:,1,3] = -obs_dyears
+        motion_matrices[:,0,4] = -parallax_vectors[:,0]
+        motion_matrices[:,1,4] = -parallax_vectors[:,1]
+
+        including_parallax = True
+        n_fit_params = 5
+
+    if return_only_motion:
+        return motion_matrices
+    else:
+        return motion_matrices,parallax_vectors,including_parallax,n_fit_params
+
 def delta_ra_dec_per_parallax_VECTORIZED(other_times,gaia_time,ra,dec):
     '''
     Calculate the parallax offset vectors at other_times for a position (ra,dec)
+
+    Inputs:
+        other_times = times you want parallax vectors at, list of astropy.Time objects
+        gaia_time = reference epoch, astropy.Time object
+        ra = RA (degrees) of target/pointing
+        dec = Dec (degrees) of target/pointing
+
+    Outputs:
+        parallax_vectors = numpy array giving parallax offsets in RA,Dec for each time in other_times,
+                            parallax_offset = parallax_vectors * parallax, where parallax is in mas
     '''
     
     #THIS CODE IS REPURPOSED FROM CODE FROM MELODIE KAO
@@ -155,7 +228,8 @@ def delta_ra_dec_per_parallax_VECTORIZED(other_times,gaia_time,ra,dec):
     delta_time = (gaia_time-other_times).to(u.year).value
     dates = other_times[:,None]+(np.array([delta_time*0,delta_time]).T)*u.year
     dates = Time(dates, format='mjd')
-    
+
+    #need sun position at the observation times
     sun_loc = astropy.coordinates.get_sun(dates)
     
     sun_skycoord = SkyCoord(frame='gcrs', obstime=dates,
@@ -180,7 +254,9 @@ def delta_ra_dec_per_parallax_VECTORIZED(other_times,gaia_time,ra,dec):
     sin_lam = np.sin(sun_eclon)
     cos_ecc = np.cos(ecc)
     sin_ecc = np.sin(ecc)
-    
+
+    #calculate offsets in alpha*,delta (i.e. change in RA,Dec)
+    #for a 1 mas parallax
     dalpha = cos_alpha*cos_ecc*sin_lam-sin_alpha*cos_lam
     ddelta = cos_delta*sin_ecc*sin_lam-cos_alpha*sin_delta*cos_lam\
                 -sin_alpha*sin_delta*cos_ecc*sin_lam
@@ -193,7 +269,7 @@ def delta_ra_dec_per_parallax_VECTORIZED(other_times,gaia_time,ra,dec):
 
 class gaia_roman_astrometric_precision:
     """
-    takes lists of Roman magnitudes (and corresponding filter names), Gaia magnitudes
+    takes lists of Roman magnitudes (and corresponding filter names) and Gaia magnitudes
     to be used in determining the astrometric improvement from combining telescopes
 
     provide ra,dec coordinates (in degrees) to properly account for parallax in the 
@@ -201,17 +277,22 @@ class gaia_roman_astrometric_precision:
     precisions will be updated.
 
     Inputs:
-    roman_filters = list of filters used, shape = (n_filters)
-    roman_mags = numpy array, roman magnitudes in different filters of all stars, shape = (n_stars,n_filters)
-    gaia_mags = numpy array, gaia magnitudes, shape = (n_stars)
-    observation_list = description of observations, shape = (n_observations,(epoch_MJD,roman_filter,N_images_at_epoch))
-    roman_pos_floor_err = uncertainty floor (in mas) of Roman position measurements
-    ra,dec = target coordinate in degrees
+        roman_mags = numpy array, roman magnitudes in different filters of all stars, shape = (n_stars,n_filters)
+        roman_filters = list of filters used, shape = (n_filters)
+        gaia_mags = numpy array, gaia magnitudes, shape = (n_stars)
+        observation_list = description of observations, shape = (n_observations,(epoch_MJD,roman_filter,N_images_at_epoch))
+        roman_pos_floor_err = uncertainty floor (in mas) of Roman position measurements, default is 1% of pixel width
+        gaia_ref_epoch = Gaia reference epoch, default is J2016.0
+        ra,dec = target/pointing coordinate in degrees, default is None, which ignores parallax in the following calculations
+        roman_background = simulated background used for Roman position uncertainty, default is hlwas-wide_field1
+        roman_background_level = simulated background level used for Roman position uncertainty, default is medium
     """
     
     def __init__(self, roman_mags, roman_filters, gaia_mags, observation_list,
                  gaia_era = 'DR4', roman_pos_floor_err = 0.01*roman_pix_scale, 
-                 gaia_ref_epoch = 2016.0, ra=None, dec=None):
+                 gaia_ref_epoch = 2016.0, ra = None, dec = None, 
+                 roman_background = 'hlwas-wide_field1', 
+                 roman_background_level = 'medium'):
 
         """
         for all the given roman magnitudes, save the corresponding position uncertainties (mas),
@@ -223,25 +304,35 @@ class gaia_roman_astrometric_precision:
         #general information
         self.n_stars = len(gaia_mags)
         self.n_epochs = len(observation_list)
+        self.ra = ra
+        self.dec = dec
 
         #roman information
         self.n_filters = len(roman_filters)
         self.roman_filters = np.array(roman_filters)
         self.roman_mags = roman_mags
+        self.roman_background = roman_background
+        self.roman_background_level = roman_background_level
+        self.roman_pos_floor_err = roman_pos_floor_err
 
+        #save unique combinations of MA/exposure time and Roman filters
         self.obs_unique_filter_MAs = np.unique(np.array(observation_list)[:,[1,3]],axis=0)
         self.obs_unique_filter_MAs_strings = np.zeros(len(self.obs_unique_filter_MAs)).astype(str)
         for ind,pair in enumerate(self.obs_unique_filter_MAs):
             self.obs_unique_filter_MAs_strings[ind] = '_'.join(pair)
-        self.obs_n_unique_filt_MAs = len(self.obs_unique_filter_MAs)        
-        
+        self.obs_n_unique_filt_MAs = len(self.obs_unique_filter_MAs)
+
+        #define Roman position uncertainties for relevant MA/filter combinations
         self.roman_covs = np.zeros((self.n_stars,self.obs_n_unique_filt_MAs,2,2))
         self.roman_pos_errs = np.zeros((self.n_stars,self.obs_n_unique_filt_MAs))
         for filt_ind in range(self.obs_n_unique_filt_MAs):
             filt = self.obs_unique_filter_MAs[filt_ind][0]
             ma_name = self.obs_unique_filter_MAs[filt_ind][1]
             
-            self.roman_pos_errs[:,filt_ind] = roman_position_precision(self.roman_mags[:,filt_ind],filt,ma_name)
+            self.roman_pos_errs[:,filt_ind] = roman_position_precision(self.roman_mags[:,np.where(self.roman_filters == filt)[0][0]],
+                                                                       filt,ma_name,
+                                                                       roman_background,
+                                                                       roman_background_level)
             self.roman_covs[:,filt_ind,0,0] = np.power(self.roman_pos_errs[:,filt_ind],2)
             self.roman_covs[:,filt_ind,1,1] = np.power(self.roman_pos_errs[:,filt_ind],2)
         self.good_roman_errs = np.isfinite(self.roman_pos_errs)
@@ -311,34 +402,46 @@ class gaia_roman_astrometric_precision:
         self.multi_epoch_stars = (self.n_min_epochs_indv > 1)
         
         self.obs_times = Time(self.obs_epoch_mjds, format='mjd')
-        self.obs_dyears = (self.obs_times-self.gaia_time).to(u.year).value
-        if (ra is None) or (dec is None):
-            self.parallax_vectors = np.zeros((self.n_epochs,2))
 
-            #motion_matrix dot [dracosdec,ddec,pmracosdec,pmdec,] = position change
-            self.motion_matrices = np.zeros((self.n_epochs,2,4))
-            self.motion_matrices[:,0,0] = -1
-            self.motion_matrices[:,1,1] = -1
-            self.motion_matrices[:,0,2] = -self.obs_dyears
-            self.motion_matrices[:,1,3] = -self.obs_dyears
+        self.motion_matrices,\
+                    self.parallax_vectors,\
+                    self.including_parallax,\
+                    self.n_fit_params = create_motion_matrices(self.obs_times,
+                                                               self.gaia_time,
+                                                               ra=self.ra,dec=self.dec,
+                                                               return_only_motion=False)
+        
+        # self.obs_dyears = (self.obs_times-self.gaia_time).to(u.year).value
+        # if (ra is None) or (dec is None):
+        #     #then DO NOT include parallax in motion matrix calculations
+        #     self.parallax_vectors = np.zeros((self.n_epochs,2))
 
-            self.including_parallax = False
-            self.n_fit_params = 4
-        else:
-            #calculate the parallax vector associated with the observation dates and (RA,Dec)
-            self.parallax_vectors = delta_ra_dec_per_parallax_VECTORIZED(self.obs_times,self.gaia_time,ra,dec)
+        #     #motion_matrix dot [dracosdec,ddec,pmracosdec,pmdec,] = position change
+        #     self.motion_matrices = np.zeros((self.n_epochs,2,4))
+        #     self.motion_matrices[:,0,0] = -1
+        #     self.motion_matrices[:,1,1] = -1
+        #     self.motion_matrices[:,0,2] = -self.obs_dyears
+        #     self.motion_matrices[:,1,3] = -self.obs_dyears
 
-            #motion_matrix dot [dracosdec,ddec,pmracosdec,pmdec,] = position change
-            self.motion_matrices = np.zeros((self.n_epochs,2,5))
-            self.motion_matrices[:,0,0] = -1
-            self.motion_matrices[:,1,1] = -1
-            self.motion_matrices[:,0,2] = -self.obs_dyears
-            self.motion_matrices[:,1,3] = -self.obs_dyears
-            self.motion_matrices[:,0,4] = -self.parallax_vectors[:,0]
-            self.motion_matrices[:,1,4] = -self.parallax_vectors[:,1]
+        #     self.including_parallax = False
+        #     self.n_fit_params = 4
+        # else:
+        #     #then DO include parallax in motion matrix calculations
 
-            self.including_parallax = True
-            self.n_fit_params = 5
+        #     #calculate the parallax vector associated with the observation dates and (RA,Dec)
+        #     self.parallax_vectors = delta_ra_dec_per_parallax_VECTORIZED(self.obs_times,self.gaia_time,ra,dec)
+
+        #     #motion_matrix dot [dracosdec,ddec,pmracosdec,pmdec,] = position change
+        #     self.motion_matrices = np.zeros((self.n_epochs,2,5))
+        #     self.motion_matrices[:,0,0] = -1
+        #     self.motion_matrices[:,1,1] = -1
+        #     self.motion_matrices[:,0,2] = -self.obs_dyears
+        #     self.motion_matrices[:,1,3] = -self.obs_dyears
+        #     self.motion_matrices[:,0,4] = -self.parallax_vectors[:,0]
+        #     self.motion_matrices[:,1,4] = -self.parallax_vectors[:,1]
+
+        #     self.including_parallax = True
+        #     self.n_fit_params = 5
             
         #calculate the final astrometry precision
         obs_roman_inv_covs = (self.roman_inv_covs[:,self.obs_roman_filt_inds]*self.obs_n_images_per_epoch[None,:,None,None])
@@ -360,6 +463,7 @@ class gaia_roman_astrometric_precision:
         #for stability (like an extremely diffuse global prior on PM and parallax)
         final_astrometry_inv_covs[:,2:,2:] += np.diag(np.array([1e5,1e5,1e4])[:self.n_fit_params-2]**-2)
 
+        self.final_astrometry_inv_covs = final_astrometry_inv_covs
         self.final_astrometry_covs = np.zeros_like(final_astrometry_inv_covs)
         self.final_astrometry_covs[:] = np.nan
         self.final_astrometry_covs[(self.n_min_epochs_indv > 0)] = np.linalg.inv(final_astrometry_inv_covs[(self.n_min_epochs_indv > 0)])
