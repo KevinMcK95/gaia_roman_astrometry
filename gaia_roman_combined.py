@@ -463,6 +463,7 @@ class gaia_roman_astrometric_precision:
         #for stability (like an extremely diffuse global prior on PM and parallax)
         final_astrometry_inv_covs[:,2:,2:] += np.diag(np.array([1e5,1e5,1e4])[:self.n_fit_params-2]**-2)
 
+        self.roman_alone_astrometry_inv_covs = roman_summed_data_inv_covs
         self.final_astrometry_inv_covs = final_astrometry_inv_covs
         self.final_astrometry_covs = np.zeros_like(final_astrometry_inv_covs)
         self.final_astrometry_covs[:] = np.nan
